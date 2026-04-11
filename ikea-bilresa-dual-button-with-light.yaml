@@ -1,0 +1,215 @@
+blueprint:
+  name: IKEA BILRESA Dual Button with Light
+  description: IKEA BILRESA dual button automation with smooth dimming.
+  domain: automation
+  author: Calvin Ling
+  homeassistant:
+    min_version: "2024.6.0"
+
+  input:
+    button1_event_entity:
+      name: Button 1 Event Entity
+      description: >
+        Button event entity that will be used for increasing the brightness when
+        the button is held.
+      selector:
+        entity:
+          domain: event
+          device_class: button
+    button2_event_entity:
+      name: Button 2 Event Entity
+      description: >
+        Button event entity that will be used for decreasing the brightness when
+        the button is held.
+      selector:
+        entity:
+          domain: event
+          device_class: button
+    light_entity:
+      name: Light
+      description: The light to control.
+      selector:
+        entity:
+          domain: light
+    max_transition_duration:
+      name: 0% to 100% Transition Duration
+      description: >
+        How long it should take to transition from 0% to 100% brightness.
+      default: 5
+      selector:
+        number:
+          min: 1
+          max: 15
+          step: 1
+          unit_of_measurement: s
+    button1_actions:
+      name: Button 1 Actions
+      collapsed: true
+      input:
+        button1_single_press_action:
+          name: Single Press
+          default:
+            - action: light.toggle
+              target:
+                entity_id: "{{ light_entity }}"
+          selector:
+            action: {}
+        button1_double_press_action:
+          name: Double Press
+          default: []
+          selector:
+            action: {}
+    button2_actions:
+      name: Button 2 Actions
+      collapsed: true
+      input:
+        button2_single_press_action:
+          name: Single Press
+          default: []
+          selector:
+            action: {}
+        button2_double_press_action:
+          name: Double Press
+          default: []
+          selector:
+            action: {}
+
+triggers:
+  - trigger: state
+    entity_id: !input button1_event_entity
+    id: button1
+  - trigger: state
+    entity_id: !input button2_event_entity
+    id: button2
+
+condition:
+  - condition: template
+    value_template: >
+      {{ trigger.from_state.state not in ['unavailable', 'unknown'] }}
+  - condition: template
+    value_template: >
+      {{ trigger.to_state.state not in ['unavailable', 'unknown'] }}
+  - condition: template
+    value_template: >
+      {{ trigger.from_state.state != trigger.to_state.state }}
+
+mode: single
+max_exceeded: silent
+
+variables:
+  light_entity: !input light_entity
+  max_transition_duration: !input max_transition_duration
+  max_brightness: 255
+  min_brightness: 1
+
+actions:
+  - variables:
+      trigger_id: "{{ trigger.id }}"
+      press_type: "{{ trigger.to_state.attributes.event_type }}"
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: >
+              {{ trigger_id == 'button1' and press_type == 'multi_press_1' }}
+        sequence: !input button1_single_press_action
+      - conditions:
+          - condition: template
+            value_template: >
+              {{ trigger_id == 'button2' and press_type == 'multi_press_1' }}
+        sequence: !input button2_single_press_action
+      - conditions:
+          - condition: template
+            value_template: >
+              {{ trigger_id == 'button1' and press_type == 'multi_press_2' }}
+        sequence: !input button1_double_press_action
+      - conditions:
+          - condition: template
+            value_template: >
+              {{ trigger_id == 'button2' and press_type == 'multi_press_2' }}
+        sequence: !input button2_double_press_action
+      - conditions:
+          - condition: template
+            value_template: >
+              {{ trigger_id == 'button1' and press_type == 'long_press' }}
+        sequence:
+          - condition: state
+            state: "on"
+            entity_id: !input light_entity
+          - variables:
+              start_time: "{{ as_timestamp(now()) }}"
+              start_brightness: >
+                {{ state_attr(light_entity, 'brightness') or 0 }}
+              brightness_diff_to_max: >
+                {{ [max_brightness - start_brightness, 0] | max }}
+              transition_time_to_max: >
+                {{ brightness_diff_to_max / max_brightness * max_transition_duration }}
+          - action: light.turn_on
+            target:
+              entity_id: !input light_entity
+            data:
+              brightness: "{{ max_brightness }}"
+              transition: "{{ transition_time_to_max }}"
+          - wait_for_trigger:
+              - trigger: state
+                entity_id: !input button1_event_entity
+                attribute: event_type
+                to: long_release
+              - trigger: state
+                entity_id: !input light_entity
+                not_to: "on"
+            timeout: 30
+          - condition: state
+            state: "on"
+            entity_id: !input light_entity
+          - variables:
+              elapsed_time: "{{ as_timestamp(now()) - start_time }}"
+              brightness_change_requested: >
+                {{ (elapsed_time / max_transition_duration * max_brightness) | int }}
+          - action: light.turn_on
+            target:
+              entity_id: !input light_entity
+            data:
+              brightness: "{{ [start_brightness + brightness_change_requested,
+                max_brightness] | min }}"
+      - conditions:
+          - condition: template
+            value_template: >
+              {{ trigger_id == 'button2' and press_type == 'long_press' }}
+        sequence:
+          - condition: state
+            state: "on"
+            entity_id: !input light_entity
+          - variables:
+              start_time: "{{ as_timestamp(now()) }}"
+              start_brightness: >
+                {{ state_attr(light_entity, 'brightness') or 0 }}
+              transition_time_to_min: >
+                {{ start_brightness / max_brightness * max_transition_duration }}
+          - action: light.turn_on
+            target:
+              entity_id: !input light_entity
+            data:
+              brightness: "{{ min_brightness }}"
+              transition: "{{ transition_time_to_min }}"
+          - wait_for_trigger:
+              - trigger: state
+                entity_id: !input button2_event_entity
+                attribute: event_type
+                to: long_release
+              - trigger: state
+                entity_id: !input light_entity
+                not_to: "on"
+            timeout: 30
+          - condition: state
+            state: "on"
+            entity_id: !input light_entity
+          - variables:
+              elapsed_time: "{{ as_timestamp(now()) - start_time }}"
+              brightness_change_requested: >
+                {{ (-1 * elapsed_time / max_transition_duration * max_brightness) | int }}
+          - action: light.turn_on
+            target:
+              entity_id: !input light_entity
+            data:
+              brightness: >
+                {{ [start_brightness + brightness_change_requested, min_brightness] | max }}
