@@ -7,41 +7,47 @@ blueprint:
     min_version: "2024.6.0"
 
   input:
-    button1_event_entity:
-      name: Button 1 Event Entity
-      description: >-
-        Button event entity that will be used for increasing the brightness when
-        the button is held.
-      selector:
-        entity:
-          domain: event
-          device_class: button
-    button2_event_entity:
-      name: Button 2 Event Entity
-      description: >-
-        Button event entity that will be used for decreasing the brightness when
-        the button is held.
-      selector:
-        entity:
-          domain: event
-          device_class: button
-    light_entity:
+    light:
       name: Light
-      description: The light to control.
-      selector:
-        entity:
-          domain: light
-    max_transition_duration:
-      name: 0% to 100% Transition Duration
-      description: >-
-        How long it should take to transition from 0% to 100% brightness.
-      default: 5
-      selector:
-        number:
-          min: 1
-          max: 15
-          step: 1
-          unit_of_measurement: s
+      input:
+        light_entity:
+          name: Light
+          description: The light to control.
+          selector:
+            entity:
+              domain: light
+        max_transition_duration:
+          name: 0% to 100% Transition Duration
+          description: >-
+            How long it should take to transition from 0% to 100% brightness.
+          default: 5
+          selector:
+            number:
+              min: 1
+              max: 15
+              step: 1
+              unit_of_measurement: s
+    button_events:
+      name: Button Events
+      input:
+        button1_event_entity:
+          name: Button 1 Event Entity
+          description: >-
+            Button event entity that will be used for increasing the brightness
+            when the button is held.
+          selector:
+            entity:
+              domain: event
+              device_class: button
+        button2_event_entity:
+          name: Button 2 Event Entity
+          description: >-
+            Button event entity that will be used for decreasing the brightness
+            when the button is held.
+          selector:
+            entity:
+              domain: event
+              device_class: button
     button1_actions:
       name: Button 1 Actions
       collapsed: true
