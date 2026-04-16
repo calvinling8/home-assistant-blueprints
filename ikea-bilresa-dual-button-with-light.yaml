@@ -163,7 +163,7 @@ actions:
               - trigger: state
                 entity_id: !input light_entity
                 not_to: "on"
-            timeout: 30
+            timeout: "{{ transition_time_to_max }}"
           - condition: state
             state: "on"
             entity_id: !input light_entity
@@ -205,7 +205,7 @@ actions:
               - trigger: state
                 entity_id: !input light_entity
                 not_to: "on"
-            timeout: 30
+            timeout: "{{ transition_time_to_min }}"
           - condition: state
             state: "on"
             entity_id: !input light_entity
