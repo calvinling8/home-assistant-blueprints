@@ -1,5 +1,5 @@
 blueprint:
-  name: IKEA BILRESA Dual Button with Light Beta
+  name: IKEA BILRESA Dual Button with Light
   description: IKEA BILRESA dual button automation with smooth dimming.
   domain: automation
   author: Calvin Ling
