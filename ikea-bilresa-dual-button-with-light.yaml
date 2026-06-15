@@ -1,5 +1,5 @@
 blueprint:
-  name: IKEA BILRESA Dual Button with Light
+  name: IKEA BILRESA Dual Button with Light Beta
   description: IKEA BILRESA dual button automation with smooth dimming.
   domain: automation
   author: Calvin Ling
@@ -20,13 +20,35 @@ blueprint:
           name: 0% to 100% Transition Duration
           description: >-
             How long it should take to transition from 0% to 100% brightness.
-          default: 5
+          default: 3
           selector:
             number:
               min: 1
               max: 15
               step: 1
               unit_of_measurement: s
+        min_brightness:
+          name: Minimum brightness
+          description: >-
+            The brightness to consider as the minimum. The light will not get
+            dimmer than this value.
+          default: 1
+          selector:
+            number:
+              min: 0
+              max: 255
+              step: 1
+        max_brightness:
+          name: Maximum brightness
+          description: >-
+            The brightness to consider as the maximum. The light will not get
+            brighter than this value.
+          default: 255
+          selector:
+            number:
+              min: 1
+              max: 255
+              step: 1
     button_events:
       name: Button Events
       input:
@@ -94,24 +116,20 @@ triggers:
 condition:
   - condition: template
     value_template: >-
-      {{ trigger.from_state.state not in ['unavailable', 'unknown'] }}
-  - condition: template
-    value_template: >
-      {{ trigger.to_state.state not in ['unavailable', 'unknown'] }}
-  - condition: template
-    value_template: >
-      {{ trigger.from_state.state != trigger.to_state.state }}
+      {{ trigger.to_state is not none and trigger.to_state.state not in ['unavailable', 'unknown'] }}
 
 variables:
   light_entity: !input light_entity
   max_transition_duration: !input max_transition_duration
-  max_brightness: 255
-  min_brightness: 1
+  max_brightness: !input max_brightness
+  min_brightness: !input min_brightness
+  brightness_range: >-
+    {{ [max_brightness - min_brightness, 1] | max }}
 
 actions:
   - variables:
       trigger_id: "{{ trigger.id }}"
-      press_type: "{{ trigger.to_state.attributes.event_type }}"
+      press_type: "{{ trigger.to_state.attributes.event_type | default('') }}"
   - choose:
       - conditions:
           - condition: template
@@ -148,7 +166,10 @@ actions:
               brightness_diff_to_max: >-
                 {{ [max_brightness - start_brightness, 0] | max }}
               transition_time_to_max: >-
-                {{ brightness_diff_to_max / max_brightness * max_transition_duration }}
+                {{ brightness_diff_to_max / brightness_range * max_transition_duration }}
+          - condition: template
+            value_template: >-
+              {{ transition_time_to_max > 0 }}
           - action: light.turn_on
             target:
               entity_id: !input light_entity
@@ -170,13 +191,13 @@ actions:
           - variables:
               elapsed_time: "{{ as_timestamp(now()) - start_time }}"
               brightness_change_requested: >-
-                {{ (elapsed_time / max_transition_duration * max_brightness) | int }}
+                {{ (elapsed_time / max_transition_duration * brightness_range) | int }}
           - action: light.turn_on
             target:
               entity_id: !input light_entity
             data:
-              brightness: "{{ [start_brightness + brightness_change_requested,
-                max_brightness] | min }}"
+              brightness: >-
+                {{ [start_brightness + brightness_change_requested, max_brightness] | min }}
       - conditions:
           - condition: template
             value_template: >-
@@ -189,8 +210,13 @@ actions:
               start_time: "{{ as_timestamp(now()) }}"
               start_brightness: >-
                 {{ state_attr(light_entity, 'brightness') or 0 }}
+              brightness_difference_to_min: >-
+                {{ [start_brightness - min_brightness, 0] | max }}
               transition_time_to_min: >-
-                {{ start_brightness / max_brightness * max_transition_duration }}
+                {{ brightness_difference_to_min / brightness_range * max_transition_duration }}
+          - condition: template
+            value_template: >-
+              {{ transition_time_to_min > 0 }}
           - action: light.turn_on
             target:
               entity_id: !input light_entity
@@ -212,7 +238,7 @@ actions:
           - variables:
               elapsed_time: "{{ as_timestamp(now()) - start_time }}"
               brightness_change_requested: >-
-                {{ (-1 * elapsed_time / max_transition_duration * max_brightness) | int }}
+                {{ (-1 * elapsed_time / max_transition_duration * brightness_range) | int }}
           - action: light.turn_on
             target:
               entity_id: !input light_entity
