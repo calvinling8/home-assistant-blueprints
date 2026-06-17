@@ -15,7 +15,8 @@ blueprint:
           description: The light to control.
           selector:
             entity:
-              domain: light
+              filter:
+                domain: light
         max_transition_duration:
           name: 0% to 100% Transition Duration
           description: >-
@@ -59,8 +60,9 @@ blueprint:
             when the button is held.
           selector:
             entity:
-              domain: event
-              device_class: button
+              filter:
+                domain: event
+                device_class: button
         button2_event_entity:
           name: Button 2 Event Entity
           description: >-
@@ -68,8 +70,9 @@ blueprint:
             when the button is held.
           selector:
             entity:
-              domain: event
-              device_class: button
+              filter:
+                domain: event
+                device_class: button
     button1_actions:
       name: Button 1 Actions
       collapsed: true
