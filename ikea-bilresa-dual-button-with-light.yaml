@@ -117,6 +117,10 @@ condition:
   - condition: template
     value_template: >-
       {{ trigger.to_state is not none and trigger.to_state.state not in ['unavailable', 'unknown'] }}
+  - condition: template
+    value_template: >-
+      {{ trigger.from_state is none or trigger.from_state.state not in ['unavailable', 'unknown'] }}
+
 
 variables:
   light_entity: !input light_entity
